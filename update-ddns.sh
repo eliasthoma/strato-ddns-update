@@ -10,12 +10,12 @@
 # https://github.com/et1902/strato-ddns-update
 #
 # This script is updating your Strato AG (strato.de) dyndns-entries.
-# First make sure dns utils are installed: sudo apt install dnsutils -y
 # Copy the script to a loaction on your system.
 # Create crontab entry:
-# */15 * * * * /path-to-location/update-ddns.sh -6 -d <your-domain> -p <your-ddns-password> > /path-to-location/update-ddns.log
+# */15 * * * * /path-to-location/update-ddns.sh -4 -6 -d <your-domain> -p <your-ddns-password> > /path-to-location/update-ddns.log
 #
 
+#(
 function usage()
 {
     echo "Usage: $0 [-h] [-4] [-6] [-f] [-d] ddns-name [-p] ddns-password" >&2
@@ -63,8 +63,15 @@ while getopts 'h46fd:p:' OPTION; do
     esac
 done
 
-IP4_DNS=`dig $DOMAIN a +short @1.1.1.1`
-IP6_DNS=`dig $DOMAIN aaaa +short @1.1.1.1`
+# worked on raspberrypi
+# First make sure dns utils are installed: sudo apt install dnsutils -y
+#IP4_DNS=`dig $DOMAIN a +short @1.1.1.1`
+#IP6_DNS=`dig $DOMAIN aaaa +short @1.1.1.1`
+
+# worked on synology nas
+IP4_DNS=$(nslookup -q=a $DOMAIN 1.1.1.1| awk -F': ' '/^Address: / { matched = 1 } matched { print $2}' | xargs)
+IP6_DNS=$(nslookup -q=aaaa $DOMAIN 1.1.1.1| awk -F': ' '/^Address: / { matched = 1 } matched { print $2}' | xargs)
+
 printf "Current DNS entries for %s: \n" $DOMAIN
 printf "A    %s \n" $IP4_DNS
 printf "AAAA %s \n\n" $IP6_DNS
@@ -108,8 +115,10 @@ then
 fi
 
 mkdir -p /tmp/update-ddns
+#mkdir -p /var/log/update-ddns
 
-CURL_RESPONSE="/tmp/update-ddns/${DOMAIN//[.]/_}.txt"
+CURL_RESPONSE="/tmp/update-ddns/${DOMAIN//[.]/_}_curl.txt"
+#CURL_RESPONSE="/var/log/update-ddns/${DOMAIN//[.]/_}_curl.txt"
 
 curl --silent -o $CURL_RESPONSE -i "https://$DOMAIN:$PASSWORD@dyndns.strato.com/nic/update?hostname=$DOMAIN&myip=$IP_STRING"
 
@@ -135,3 +144,7 @@ case $DDNS_STATUS in
         exit 1
         ;;
 esac
+#) > "/var/log/update-ddns/${DOMAIN//[.]/_}.txt" 2>&1
+
+
+
